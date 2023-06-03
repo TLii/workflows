@@ -1,4 +1,5 @@
 # workflows
+This repository hosts my reusable workflows and workflow templates. Use them if you wish, but please understand I will not provide any support. Workflows might also change at any time.
 ## check_upstream_head
 Checks upstream repository for last commit id and outputs true if it differs from recorded onw.
 ### Inputs
