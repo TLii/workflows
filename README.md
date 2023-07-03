@@ -11,4 +11,10 @@ Checks upstream repository for last commit id and outputs true if it differs fro
 - `upstream_changed`: True if the said commit id differs from the one recorded in `$ci_dir/upstream.head.txt`.
 ### Limitations:
 - Works only with public upstreams for now
-- **Workflow doesn't record commit id**. This is by design. Pipeline must record the new head commit from output.
+## validate
+Validate source code
+### Inputs
+See workflow file.
+### Outputs
+None.
+### Limitations

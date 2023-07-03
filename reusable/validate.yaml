@@ -1,0 +1,78 @@
+name: Codebase validation
+
+on:
+  workflow_call:
+    inputs:
+      # PHP
+      php_enabled:
+        type: boolean
+        required: false
+        default: false
+        description: Run PHP validation
+      php_version:
+        type: string
+        required: false
+        default: '8.2'
+        description: Which version to use for PHP validation.
+      # Docker
+      docker_enabled:
+        type: boolean
+        required: false
+        default: false
+        description: Run Dockerfile validation (with hadolint)
+      docker_threshold:
+        type: string
+        required: false
+        default: 'error'
+        description: Failure threshold for hadolint. Defaults to 'error'
+      # Shell
+      shell_enabled:
+        type: boolean
+        required: false
+        default: false
+        description: Run Shellcheck
+      shell_threshold:
+        type: string
+        required: false
+        default: 'error'
+        description: Failure threshold for Shellcheck
+      shell_check_together:
+        type: string
+        required: false
+        default: 'yes'
+        description: Check all shell scripts together
+      shell_format:
+        type: string
+        required: false
+        default: 'gcc'
+        description: Output format for Shellcheck
+jobs:
+  validate:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Code checkout
+      uses: actions/checkout@v3
+
+    - name: Lint Dockerfile
+      uses: hadolint/hadolint-action@v3.1.0
+      if: github.event.inputs.docker_enabled == true
+      with:
+        dockerfile: Dockerfile
+        failure-threshold: ${{ github.event.inputs.docker_threshold }}
+
+    - name: Check all shell scripts
+      uses: ludeeus/action-shellcheck@master
+      if: github.event.inputs.shell_enabled == true
+      with:
+        severity: ${{ github.event.inputs.shell_threshold }}
+        check_together: ${{ github.event.inputs.shell_check_together }}
+        format: ${{ github.event.inputs.shell_format }}
+
+    - name: Check all php files
+      uses: firehed/lint-php-action@v1
+      if: github.event.inputs.php_enabled == true
+      with:
+        php-version: ${{ github.event.inputs.php_version }}
