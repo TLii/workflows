@@ -1,0 +1,167 @@
+name: Build new images
+
+on:
+  workflow_call:
+    inputs:
+      build_branch:
+        type: string
+        description: 'Branch to build'
+        required: false
+        default: 'develop'
+      last_build_head:
+        type: string
+        description: 'Commit id on the last build'
+        required: false
+      current_version:
+        type: string
+        description: 'Current version before a possible bump'
+        required: false
+        default: '0.0.0'
+      use_build_numbers:
+        type: string
+        description: 'Add build number to semver string'
+        required: false
+        default: 'true'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      BRANCH: ${{ github.event.inputs.branch }}
+      LAST_HEAD: ${{ github.event.inputs.last_build_head }}
+
+    outputs:
+      version_type: ${{ steps.get_version.outputs.version_type }}
+      version: ${{ steps.bump_version.outputs.next-version }}
+
+    steps:
+
+    - name: Code checkout
+      uses: actions/checkout@v3
+
+    - name: Decide on build and versioning
+      id: get_version
+      run: |
+
+        if [[ ! -z $LAST_HEAD ]]; then
+          # If last build was not recorded, assume a rebuild with minimal versioning.
+
+          echo "version_type=none" >> $GITHUB_OUTPUT;
+
+        else
+          # See if there are any file changes since last build that warrant a new build
+
+          # Default to no change
+          source_changed=false
+
+          # Loop through all files changed since last build
+          for file in $(git diff --name-only $LAST_HEAD HEAD); do
+
+              # If file is only related to workflows or ci, then no need for a new build.
+              # In other cases, a new build is needed.
+
+              if [[ $file != .ci/* ]] && [[ $file != .github/* ]]; then
+
+                echo  "A change in source detected."
+                source_changed=true
+
+                # As an optimization, we can stop the loop if we detect the first relevant change
+                # in the source.
+                # This is because we only need to know if a change has occurred, not how many.
+                break
+
+              fi
+          done
+
+          # If no change in source, no need for a new build, and this job can be skipped.
+
+        [[ source_changed == false ]] && (echo "No build necessary"); exit 0;
+
+
+        # Determine the level of change for semver bump.
+        # Possible options are [ major | feature | bug | alpha | beta | pre | rc | build ]
+        # Numeric values are   [  8    |   7     |  6  |  2    |  3   | 4   | 5  |    1 ]
+
+        # Determine needed semver bump by looking at the commit headers.
+        # If there are multiple commits, the highest level of change is used.
+        # The logic is as follows:
+        # - If there are breaking changes, bump the major version
+        # - If there are new features, bump the feature version
+        # - If there are bug fixes, bump the minor version
+        # - Control alpha, beta, pre, rc, and build versions by suffixing the commit header with -[a|alpha|b|beta|p|pre|r|rc], eg. 'fix-alpha' or 'feat-rc'.
+
+        # Conventional commits:
+        # build: Changes that affect the build system or external dependencies (example scopes: gulp, broccoli, npm)
+        # ci: Changes to our CI configuration files and scripts (example scopes: Travis, Circle, BrowserStack, SauceLabs)
+        # docs: Documentation only changes
+        # feat: A new feature
+        # fix: A bug fix
+        # perf: A code change that improves performance
+        # refactor: A code change that neither fixes a bug nor adds a feature
+        # style: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
+        # test: Adding missing tests or correcting existing tests
+
+        highest=0
+
+        for i in $git rev-list --format=%B --oneline --all | grep -e '^[a-zA-Z0-9]* [a-zA-Z!-]*[!]\?[-]\?[a-zA-Z]*(' | sed 's|^[a-zA-Z0-9]* \([a-zA-Z!-]*\)(.*).*|\1|'); do
+          [[ ($i == *-alpha* || $i == *-a*) && $highest < 8 ]] && (highest=2 && continue);
+          [[ ($i == *-beta* || $i == *-b*) && $highest < 8 ]] && (highest=3 && continue);
+          [[ ($i == *-pre* || $i == *-p*) && $highest < 8 ]] && (highest=4 && continue);
+          [[ ($i == *-rc* || $i == *-r*) && $highest < 8 ]] && (highest=5 && continue);
+          [[ $i == *\! && $highest < 8 ]] && (highest=8 && continue);
+          [[ $i == 'feat' && $highest < 7 ]] && (highest=7 && continue);
+          [[ $i == 'fix' && $highest < 6 ]] && (highest=6 && continue);
+          [[ $i == 'perf' && $highest < 2 ]] && (highest=2 && continue);
+          [[ $i == 'refactor' && $highest < 2 ]] && (highest=2 && continue);
+          [[ $i == 'test' && $highest < 2 ]] && (highest=2 && continue);
+          [[ $i == 'build' && $highest < 1 ]] && (highest=1 && continue);
+          [[ $i == 'style' && $highest < 1 ]] && (highest=1 && continue);
+          [[ $i == 'docs' ]] && (highest=0 && continue);
+          [[ $i == 'ci' ]] && (highest=0 && continue);
+        done
+
+        case $highest in
+          8)
+            echo "version_type=major" >> $GITHUB_OUTPUT;
+            ;;
+          7)
+            echo "version_type=feature" >> $GITHUB_OUTPUT;
+            ;;
+          6)
+            echo "version_type=bug" >> $GITHUB_OUTPUT;
+            ;;
+          5)
+            echo "version_type=rc" >> $GITHUB_OUTPUT;
+            ;;
+          4)
+            echo "version_type=pre" >> $GITHUB_OUTPUT;
+            ;;
+          3)
+            echo "version_type=beta" >> $GITHUB_OUTPUT;
+            ;;
+          2)
+            echo "version_type=alpha" >> $GITHUB_OUTPUT;
+            ;;
+          1)
+            echo "version_type=build" >> $GITHUB_OUTPUT;
+            ;;
+          *)
+            echo "version_type=none" >> $GITHUB_OUTPUT;
+            ;;
+        esac
+
+    - name: Update semantic version
+      id: bump_version
+      if: >-
+        steps.get_version.outputs.version_type != 'none'
+      uses: TLii/increment-semantic-version-with-build-numbers@1.0.0
+      with:
+        current-version: ${{ inputs.current_version }}
+        version-fragment: ${{ steps.get_version.outputs.version_type }}
+        include-build-number: ${{ inputs.use_build_numbers }}
