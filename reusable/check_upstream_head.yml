@@ -18,10 +18,11 @@ on:
           type: string
           description: "Upstream branch name to check"
           required: true
-        ci_dir:
+        last_upstream_head:
           type: string
-          description: "Location of CI data"
-          default: ".ci"
+          default: "0"
+          description: "Currently recorded upstream head"
+          required: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref_name }}
@@ -36,7 +37,7 @@ jobs:
     env:
       UPSTREAM_REPOSITORY: ${{ inputs.upstream_repo }}
       UPSTREAM_BRANCH: ${{ inputs.upstream_branch }}
-
+      LAST_UPSTREAM: ${{ inputs.last_upstream_head }}
     outputs:
       upstream_head: ${{ steps.upstream_head.outputs.upstream_head }}
       upstream_changed: ${{ steps.compare_head.outputs.upstream_changed }}
@@ -49,7 +50,7 @@ jobs:
     - name: Get upstream head
       id: upstream_head
       run: |
-        # Get current upstream head and version
+        # Get current upstream head
         current_upstream_head="$(git ls-remote ${{ env.upstream_repository }} refs/heads/$UPSTREAM_BRANCH | head -n1 |awk '{print $1;}')" && echo "Current upstream head is: $current_upstream_head"
         # Output version data
         echo "upstream_head=$current_upstream_head" >> $GITHUB_OUTPUT
@@ -59,33 +60,34 @@ jobs:
       id: compare_head
       run: |
 
-
         current_upstream_head=${{ steps.upstream_head.outputs.upstream_head }}
-        # If .ci doesn't exist, assume a change
-        if [[ ! -d $PWD/${{ inputs.ci_dir }} ]]; then
-        echo "No CI data folder (/.ci) exists. Assuming a change."
-        echo "upstream_changed=true" >> $GITHUB_OUTPUT
 
-        # If upstream head hasn't been recorded, assume a change
-        elif [[ ! -f .ci/upstream_head.txt || -z $(cat .ci/upstream_head.txt) ]]; then
+        if [[ -f $PWD/${{ env.last_upstream }} ]]; then
+          last_upstream=$(cat $PWD/${{ inputs.recorded_upstream_head }})
+        else
+          last_upstream=${{ env.last_upstream }}
+        fi
 
-          # If no head information recorded, assume a change.
 
+        if [[ -z $last_upstream ]]; then
+          # If no recorded version was given, assume a change
           echo "No recorded value for upstream head. Assuming upstream has changed."
           echo "upstream_changed=true" >> $GITHUB_OUTPUT
 
-        elif [[ $current_upstream_head != $(cat .ci/upstream_head.txt); then
-
+        elif [[ $current_upstream_head != $last_upstream ]]; then
           # If current upstream head differs from recorded one, output true.
 
           echo "Last recorded and current upstream heads differ"
+          echo "Last recorded upstream head was $last_upstream"
+          echo "Current upstream head is $current_upstream_head"
           echo "upstream_changed=true" >> $GITHUB_OUTPUT
 
         else
-
           # If head hasn't changed, output false.
 
           echo "No change detected in upstream."
+          echo "Last recorded upstream head was $last_upstream"
+          echo "Current upstream head is $current_upstream_head"
           echo "upstream_changed=false" >> $GITHUB_OUTPUT
 
         fi
