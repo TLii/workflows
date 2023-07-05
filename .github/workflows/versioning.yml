@@ -35,6 +35,7 @@ jobs:
     outputs:
       version_type: ${{ steps.get_version.outputs.version_type }}
       version: ${{ steps.bump_version.outputs.next-version }}
+      version_value: ${{ steps.get_version.outputs.version_type_value }}
 
     steps:
 
@@ -122,6 +123,7 @@ jobs:
             [[ $i == 'ci' ]] && highest=0 && continue;
           done
           echo "Highest value was $highest."
+          echo "version_type_value=$highest" >> "$GITHUB_OUTPUT";
           case $highest in
             8)
               echo "version_type=major" >> "$GITHUB_OUTPUT";
