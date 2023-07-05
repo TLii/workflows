@@ -23,10 +23,6 @@ on:
         required: false
         default: 'true'
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref_name }}
-  cancel-in-progress: true
-
 jobs:
 
   build:

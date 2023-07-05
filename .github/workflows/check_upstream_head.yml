@@ -24,10 +24,6 @@ on:
           description: "Currently recorded upstream head"
           required: false
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref_name }}
-  cancel-in-progress: true
-
 jobs:
   monitor:
     name: Run upstream version monitor
