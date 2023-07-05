@@ -47,7 +47,7 @@ jobs:
       id: upstream_head
       run: |
         # Get current upstream head
-        current_upstream_head="$(git ls-remote "$UPSTREAM_REPOSITORY/refs/heads/$UPSTREAM_BRANCH" | head -n1 |awk '{print $1;}')"
+        current_upstream_head="$(git ls-remote "$UPSTREAM_REPOSITORY" | grep "/refs/heads/$UPSTREAM_BRANCH" | head -n1 |awk '{print $1;}')"
 
         # Output version data
         echo "upstream_head=$current_upstream_head" >> "$GITHUB_OUTPUT"
