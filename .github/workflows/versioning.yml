@@ -110,10 +110,10 @@ jobs:
         highest=0
 
         for i in $git rev-list --format=%B --oneline --all | grep -e '^[a-zA-Z0-9]* [a-zA-Z!-]*[!]\?[-]\?[a-zA-Z]*(' | sed 's|^[a-zA-Z0-9]* \([a-zA-Z!-]*\)(.*).*|\1|'); do
-          [[ ($i == *-alpha* || $i == *-a*) && $highest < 8 ]] && (highest=2 && continue);
-          [[ ($i == *-beta* || $i == *-b*) && $highest < 8 ]] && (highest=3 && continue);
-          [[ ($i == *-pre* || $i == *-p*) && $highest < 8 ]] && (highest=4 && continue);
-          [[ ($i == *-rc* || $i == *-r*) && $highest < 8 ]] && (highest=5 && continue);
+          [[ ($i == *-alpha* || $i == *-a*) && $highest < 2 ]] && (highest=2 && continue);
+          [[ ($i == *-beta* || $i == *-b*) && $highest < 3 ]] && (highest=3 && continue);
+          [[ ($i == *-pre* || $i == *-p*) && $highest < 4 ]] && (highest=4 && continue);
+          [[ ($i == *-rc* || $i == *-r*) && $highest < 5 ]] && (highest=5 && continue);
           [[ $i == *\! && $highest < 8 ]] && (highest=8 && continue);
           [[ $i == 'feat' && $highest < 7 ]] && (highest=7 && continue);
           [[ $i == 'fix' && $highest < 6 ]] && (highest=6 && continue);
