@@ -46,6 +46,13 @@ on:
         required: false
         default: 'gcc'
         description: Output format for Shellcheck
+      # Helm chart
+      helm_enabled:
+        type: boolean
+        required: false
+        default: false
+        description: Run Helm validation
+
 jobs:
   validate:
 
@@ -58,21 +65,57 @@ jobs:
 
     - name: Lint Dockerfile
       uses: hadolint/hadolint-action@v3.1.0
-      if: github.event.inputs.docker_enabled == true
+      if: inputs.docker_enabled == true
       with:
         dockerfile: Dockerfile
-        failure-threshold: ${{ github.event.inputs.docker_threshold }}
+        failure-threshold: ${{ inputs.docker_threshold }}
 
     - name: Check all shell scripts
       uses: ludeeus/action-shellcheck@master
-      if: github.event.inputs.shell_enabled == true
+      if: inputs.shell_enabled == true
       with:
-        severity: ${{ github.event.inputs.shell_threshold }}
-        check_together: ${{ github.event.inputs.shell_check_together }}
-        format: ${{ github.event.inputs.shell_format }}
+        severity: ${{ inputs.shell_threshold }}
+        check_together: ${{ inputs.shell_check_together }}
+        format: ${{ inputs.shell_format }}
 
     - name: Check all php files
       uses: firehed/lint-php-action@v1
-      if: github.event.inputs.php_enabled == true
+      if: inputs.php_enabled == true
       with:
-        php-version: ${{ github.event.inputs.php_version }}
+        php-version: ${{ inputs.php_version }}
+
+    - name: Set up Helm
+      uses: azure/setup-helm@v1
+      if: inputs.helm_enabled == true
+      with:
+        version: v3.9.2
+
+    - uses: actions/setup-python@v2
+      if: inputs.helm_enabled == true
+      with:
+        python-version: 3.7
+
+    - name: Set up chart-testing
+      if: inputs.helm_enabled == true
+      uses: helm/chart-testing-action@v2.2.1
+
+    - name: Run chart-testing (list-changed)
+      id: list-changed
+      if: inputs.helm_enabled == true
+      run: |
+        changed=$(ct list-changed --target-branch ${{ github.event.repository.default_branch }})
+        if [[ -n "$changed" ]]; then
+          echo "::set-output name=changed::true"
+        fi
+
+    - name: Run chart-testing (lint)
+      if: inputs.helm_enabled == true
+      run: ct lint --target-branch ${{ github.event.repository.default_branch }}
+
+    - name: Create kind cluster
+      uses: helm/kind-action@v1.2.0
+      if: inputs.helm_enabled == true && steps.list-changed.outputs.changed == 'true'
+
+    - name: Run chart-testing (install)
+      run: ct install
+      if: inputs.helm_enabled == true
