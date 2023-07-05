@@ -47,7 +47,7 @@ jobs:
 
         if [[ ! -z $LAST_HEAD ]]; then
           # If last build was not recorded, assume a rebuild with minimal versioning.
-
+          echo "No recorded last build head, so just doing a rebuild without version bumps."
           echo "version_type=none" >> $GITHUB_OUTPUT;
 
         else
@@ -121,7 +121,7 @@ jobs:
           [[ $i == 'docs' ]] && (highest=0 && continue);
           [[ $i == 'ci' ]] && (highest=0 && continue);
         done
-
+        echo "Highest value was $highest."
         case $highest in
           8)
             echo "version_type=major" >> $GITHUB_OUTPUT;

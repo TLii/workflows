@@ -47,10 +47,11 @@ jobs:
       id: upstream_head
       run: |
         # Get current upstream head
-        current_upstream_head="$(git ls-remote ${{ env.upstream_repository }} refs/heads/$UPSTREAM_BRANCH | head -n1 |awk '{print $1;}')" && echo "Current upstream head is: $current_upstream_head"
+        current_upstream_head="$(git ls-remote $UPSTREAM_REPOSITORY/refs/heads/$UPSTREAM_BRANCH | head -n1 |awk '{print $1;}')"
+
         # Output version data
         echo "upstream_head=$current_upstream_head" >> $GITHUB_OUTPUT
-
+        echo "Current upstream head is: $current_upstream_head"
 
     - name: Compare upstream version to currently recorded versioning
       id: compare_head
@@ -63,7 +64,6 @@ jobs:
         else
           last_upstream=${{ env.last_upstream }}
         fi
-
 
         if [[ -z $last_upstream ]]; then
           # If no recorded version was given, assume a change
