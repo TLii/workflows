@@ -30,10 +30,6 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    env:
-      UPSTREAM_REPOSITORY: ${{ inputs.upstream_repo }}
-      UPSTREAM_BRANCH: ${{ inputs.upstream_branch }}
-      LAST_UPSTREAM: ${{ inputs.last_upstream_head }}
     outputs:
       upstream_head: ${{ steps.upstream_head.outputs.upstream_head }}
       upstream_changed: ${{ steps.compare_head.outputs.upstream_changed }}
@@ -47,7 +43,7 @@ jobs:
       id: upstream_head
       run: |
         # Get current upstream head
-        current_upstream_head="$(git ls-remote "$UPSTREAM_REPOSITORY" | grep "/refs/heads/$UPSTREAM_BRANCH" | head -n1 |awk '{print $1;}')"
+        current_upstream_head="$(git ls-remote ${{ inputs.upstream_repo }} | grep "/refs/heads/${{ github.event.inputs.upstream_branch }}" | head -n1 |awk '{print $1;}')"
 
         # Output version data
         echo "upstream_head=$current_upstream_head" >> "$GITHUB_OUTPUT"
@@ -59,18 +55,14 @@ jobs:
 
         current_upstream_head=${{ steps.upstream_head.outputs.upstream_head }}
 
-        if [[ -f $PWD/${{ env.last_upstream }} ]]; then
-          last_upstream=$(cat "$PWD/${{ inputs.recorded_upstream_head }}")
-        else
-          last_upstream=${{ env.last_upstream }}
-        fi
+        last_upstream=${{ github.event.inputs.last_upstream_head }}
 
         if [[ -z $last_upstream ]]; then
           # If no recorded version was given, assume a change
           echo "No recorded value for upstream head. Assuming upstream has changed."
           echo "upstream_changed=true" >> "$GITHUB_OUTPUT"
 
-        elif [[ $current_upstream_head != "$last_upstream" ]]; then
+        elif [[ $current_upstream_head != $last_upstream ]]; then
           # If current upstream head differs from recorded one, output true.
 
           echo "Last recorded and current upstream heads differ"
