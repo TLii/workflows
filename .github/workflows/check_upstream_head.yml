@@ -43,7 +43,7 @@ jobs:
       id: upstream_head
       run: |
         # Get current upstream head
-        current_upstream_head="$(git ls-remote ${{ inputs.upstream_repo }} | grep "/refs/heads/${{ github.event.inputs.upstream_branch }}" | head -n1 |awk '{print $1;}')"
+        current_upstream_head="$(git ls-remote ${{ inputs.upstream_repo }} | grep "/refs/heads/${{ inputs.upstream_branch }}" | head -n1 |awk '{print $1;}')"
 
         # Output version data
         echo "upstream_head=$current_upstream_head" >> "$GITHUB_OUTPUT"
@@ -55,7 +55,7 @@ jobs:
 
         current_upstream_head=${{ steps.upstream_head.outputs.upstream_head }}
 
-        last_upstream=${{ github.event.inputs.last_upstream_head }}
+        last_upstream=${{ inputs.last_upstream_head }}
 
         if [[ -z $last_upstream ]]; then
           # If no recorded version was given, assume a change
