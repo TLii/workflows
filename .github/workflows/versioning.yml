@@ -7,16 +7,15 @@ on:
         type: string
         description: 'Branch to build'
         required: false
-        default: 'develop'
+        default: 'main'
       last_build_head:
         type: string
         description: 'Commit id on the last build'
-        required: false
+        required: true
       current_version:
         type: string
         description: 'Current version before a possible bump'
-        required: false
-        default: '0.0.0'
+        required: true
       use_build_numbers:
         type: string
         description: 'Add build number to semver string'
@@ -159,6 +158,9 @@ jobs:
               echo "version_type=none" >> "$GITHUB_OUTPUT";
               ;;
           esac
+        fi
+        if [[ ! {{ inputs.use_build_numbers }} ]] && [[ version_type=build ]]; then
+          echo "version_type=none" >> "$GITHUB_OUTPUT";
         fi
 
     - name: Update semantic version
