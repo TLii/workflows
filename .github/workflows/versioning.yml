@@ -129,38 +129,41 @@ jobs:
           done
           echo "Highest value was $highest."
           echo "version_type_value=$highest" >> "$GITHUB_OUTPUT";
+          version_type=none;
           case $highest in
             8)
-              echo "version_type=major" >> "$GITHUB_OUTPUT";
+              version_type=major
               ;;
             7)
-              echo "version_type=feature" >> "$GITHUB_OUTPUT";
+              version_type=feature
               ;;
             6)
-              echo "version_type=bug" >> "$GITHUB_OUTPUT";
+              version_type=bug
               ;;
             5)
-              echo "version_type=rc" >> "$GITHUB_OUTPUT";
+              version_type=rc
               ;;
             4)
-              echo "version_type=pre" >> "$GITHUB_OUTPUT";
+              version_type=pre
               ;;
             3)
-              echo "version_type=beta" >> "$GITHUB_OUTPUT";
+              version_type=beta
               ;;
             2)
-              echo "version_type=alpha" >> "$GITHUB_OUTPUT";
+              version_type=alpha
               ;;
             1)
-              echo "version_type=build" >> "$GITHUB_OUTPUT";
+              version_type=build
               ;;
             *)
-              echo "version_type=none" >> "$GITHUB_OUTPUT";
+              version_type=none
               ;;
           esac
         fi
-        if [[ ! {{ inputs.use_build_numbers }} ]] && [[ version_type=build ]]; then
+        if [[ ! {{ inputs.use_build_numbers }} ]] && [[ $version_type=build ]]; then
           echo "version_type=none" >> "$GITHUB_OUTPUT";
+        else
+          echo "version_type=$version_type" >> "$GITHUB_OUTPUT";
         fi
 
     - name: Update semantic version
