@@ -45,6 +45,8 @@ jobs:
         # Get current upstream head
         current_upstream_head="$(git ls-remote ${{ inputs.upstream_repo }} | grep "/refs/heads/${{ inputs.upstream_branch }}" | head -n1 |awk '{print $1;}')"
 
+        [[ -z $current_upstream_head ]] && echo "Failed to get upstream head" && exit 1
+
         # Output version data
         echo "upstream_head=$current_upstream_head" >> "$GITHUB_OUTPUT"
         echo "Current upstream head is: $current_upstream_head"
