@@ -1,13 +1,8 @@
-name: Build new images
+name: Determine versioning
 
 on:
   workflow_call:
     inputs:
-      build_branch:
-        type: string
-        description: 'Branch to build'
-        required: false
-        default: 'main'
       last_build_head:
         type: string
         description: 'Commit id on the last build'
@@ -27,28 +22,23 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    env:
-      BRANCH: ${{ github.event.inputs.branch }}
-      LAST_HEAD: ${{ github.event.inputs.last_build_head }}
-
     outputs:
       version_type: ${{ steps.get_version.outputs.version_type }}
       version: ${{ steps.bump_version.outputs.next-version }}
       version_value: ${{ steps.get_version.outputs.version_type_value }}
+      build_needed: ${{ steps.get_version.outputs.build_needed }}
 
     steps:
-
-    - name: Code checkout
-      uses: actions/checkout@v3
 
     - name: Decide on build and versioning
       id: get_version
       run: |
-
-        if [[ -n $LAST_HEAD ]]; then
+        last_head=${{ github.event.inputs.last_build_head}}
+        if [[ -n $last_head ]]; then
           # If last build was not recorded, assume a rebuild with minimal versioning.
           echo "No recorded last build head, so just doing a rebuild without version bumps."
           echo "version_type=none" >> "$GITHUB_OUTPUT";
+          echo "build_needed=true" >> "$GITHUB_OUTPUT"
 
         else
           # See if there are any file changes since last build that warrant a new build
@@ -57,7 +47,7 @@ jobs:
           source_changed=false
 
           # Loop through all files changed since last build
-          for file in $(git diff --name-only "$LAST_HEAD" HEAD); do
+          for file in $(git diff --name-only "$last_head" HEAD); do
 
               # If file is only related to workflows or ci, then no need for a new build.
               # In other cases, a new build is needed.
@@ -82,9 +72,17 @@ jobs:
             echo "build_needed=false" >> "$GITHUB_OUTPUT"
             exit 0
           else
+            echo "A build is needed."
             echo "build_needed=true" >> "$GITHUB_OUTPUT"
           fi
+        fi
 
+    - name: Determine bump type
+      id: bump_type
+      if: >-
+        steps.get_version.outputs.version_type != 'none' &&
+        steps.get_version.outputs.build_needed == 'true'
+      run: |
 
         # Determine the level of change for semver bump.
         # Possible options are [ major | feature | bug | alpha | beta | pre | rc | build ]
@@ -174,5 +172,15 @@ jobs:
       uses: TLii/increment-semantic-version-with-build-numbers@1.0.0
       with:
         current-version: ${{ inputs.current_version }}
-        version-fragment: ${{ steps.get_version.outputs.version_type }}
+        version-fragment: ${{ steps.bump_type.outputs.version_type }}
         include-build-number: ${{ inputs.use_build_numbers }}
+
+    - name: Don't update semantic version
+      id: return
+      run: |
+        new_version=${{ steps.bump_version.outputs.next-version }}
+
+        if [[ -n $new_version ]]; then
+          echo "next-version=$new_version" >> "$GITHUB_OUTPUT"
+        else
+          echo "next-version=${{ inputs.current_version }}" >> "$GITHUB_OUTPUT"
