@@ -33,7 +33,8 @@ jobs:
     - name: Decide on build and versioning
       id: get_version
       run: |
-        [[ -n ${{ inputs.last_build_head }} ]] && last_head=${{ inputs.last_build_head}} || last_head=''
+        last_head=${{ inputs.last_build_head}} # The commit id of the last build
+
         if [[ -n $last_head ]]; then
           # If last build was not recorded, assume a rebuild with minimal versioning.
           echo "No recorded last build head, so just doing a rebuild without version bumps."
