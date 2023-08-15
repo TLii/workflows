@@ -159,7 +159,8 @@ jobs:
               ;;
           esac
         fi
-        if [[ ! {{ inputs.use_build_numbers }} ]] && [[ $version_type=build ]]; then
+        use_build_numbers=${{ inputs.use_build_numbers }}
+        if [[ ! $use_build_numbers ]] && [[ $version_type=build ]]; then
           echo "version_type=none" >> "$GITHUB_OUTPUT";
         else
           echo "version_type=$version_type" >> "$GITHUB_OUTPUT";
