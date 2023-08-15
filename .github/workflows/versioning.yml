@@ -33,7 +33,7 @@ jobs:
     - name: Decide on build and versioning
       id: get_version
       run: |
-        last_head=${{ github.event.inputs.last_build_head}}
+        [[ -n ${{ inputs.last_build_head }} ]] && last_head=${{ inputs.last_build_head}} || last_head=''
         if [[ -n $last_head ]]; then
           # If last build was not recorded, assume a rebuild with minimal versioning.
           echo "No recorded last build head, so just doing a rebuild without version bumps."
@@ -184,3 +184,4 @@ jobs:
           echo "next-version=$new_version" >> "$GITHUB_OUTPUT"
         else
           echo "next-version=${{ inputs.current_version }}" >> "$GITHUB_OUTPUT"
+        fi
