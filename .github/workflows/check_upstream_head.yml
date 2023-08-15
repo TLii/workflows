@@ -36,14 +36,11 @@ jobs:
 
     steps:
 
-    - name: Code checkout
-      uses: actions/checkout@v3
-
     - name: Get upstream head
       id: upstream_head
       run: |
         # Get current upstream head
-        current_upstream_head="$(git ls-remote ${{ inputs.upstream_repo }} | grep "/refs/heads/${{ inputs.upstream_branch }}" | head -n1 |awk '{print $1;}')"
+        current_upstream_head="$(git ls-remote ${{ inputs.upstream_repo }} | grep -e "refs/heads/${{ inputs.upstream_branch }}$" | head -n1 |awk '{print $1;}')"
 
         [[ -z $current_upstream_head ]] && echo "Failed to get upstream head" && exit 1
 
@@ -76,7 +73,7 @@ jobs:
           # If head hasn't changed, output false.
 
           echo "No change detected in upstream."
-          echo "Last recorded upstream head was $last_upstream"
+          echo "Last upstream head was $last_upstream"
           echo "Current upstream head is $current_upstream_head"
           echo "upstream_changed=false" >> "$GITHUB_OUTPUT"
 
