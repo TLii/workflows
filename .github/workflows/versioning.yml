@@ -175,7 +175,7 @@ jobs:
               new_version_string=none
               ;;
           esac
-        fi
+        
         echo "Needed version bump is $new_version_string."
 
         # Check if using build numbers. If not, then don't bump the version if only build would change.
