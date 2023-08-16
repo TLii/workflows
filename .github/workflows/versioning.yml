@@ -24,7 +24,7 @@ on:
         description: 'New version'
         value: ${{ jobs.determine_version.outputs.new_version }}
       new_version_int:
-        description: 'Numeric value of version bump (0-8, 8 being \'major\')'
+        description: 'Numeric value of version bump (0-8, 8 being major)'
         value: ${{ jobs.determine_version.outputs.new_version_int }}
       build_needed:
         description: 'Whether a new build is needed'
