@@ -43,6 +43,9 @@ jobs:
 
     steps:
 
+    - name: Code checkout
+      uses: actions/checkout@v3
+
     - name: Decide on build and versioning
       id: get_version
       run: |
