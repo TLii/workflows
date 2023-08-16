@@ -12,21 +12,34 @@ on:
         description: 'Current version before a possible bump'
         required: true
       use_build_numbers:
-        type: string
+        type: boolean
         description: 'Add build number to semver string'
         required: false
-        default: 'true'
+        default: true
+    outputs:
+      new_version_string:
+        description: 'Type of version bump (major, feature, bug, alpha, beta, pre, rc, build)'
+        value: ${{ jobs.determine_version.outputs.new_version_string }}
+      new_version:
+        description: 'New version'
+        value: ${{ jobs.determine_version.outputs.new_version }}
+      new_version_int:
+        description: 'Numeric value of version bump (0-8, 8 being \'major\')'
+        value: ${{ jobs.determine_version.outputs.new_version_int }}
+      build_needed:
+        description: 'Whether a new build is needed'
+        value: ${{ jobs.determine_version.outputs.build_needed }}
 
 jobs:
 
-  build:
+  determine_version:
     runs-on: ubuntu-latest
 
     outputs:
-      version_type: ${{ steps.get_version.outputs.version_type }}
-      version: ${{ steps.bump_version.outputs.next-version }}
-      version_value: ${{ steps.get_version.outputs.version_type_value }}
-      build_needed: ${{ steps.get_version.outputs.build_needed }}
+      new_version_string: ${{ steps.return.outputs.new_version_string }}
+      new_version: ${{ steps.return.outputs.new_version }}
+      new_version_int: ${{ steps.return.outputs.new_version_int }}
+      build_needed: ${{ steps.return.outputs.build_needed }}
 
     steps:
 
@@ -38,7 +51,7 @@ jobs:
         if [[ -n $last_head ]]; then
           # If last build was not recorded, assume a rebuild with minimal versioning.
           echo "No recorded last build head, so just doing a rebuild without version bumps."
-          echo "version_type=none" >> "$GITHUB_OUTPUT";
+          echo "no_bump_needed=true" >> "$GITHUB_OUTPUT";
           echo "build_needed=true" >> "$GITHUB_OUTPUT"
 
         else
@@ -58,9 +71,9 @@ jobs:
                 echo  "A change in source detected."
                 source_changed=true
 
-                # As an optimization, we can stop the loop if we detect the first relevant change
+                # As an optimization, we can stop the loop when we detect the first relevant change
                 # in the source.
-                # This is because we only need to know if a change has occurred, not how many.
+                # This is because we only need to know if a change has occurred, not then number of them.
                 break
 
               fi
@@ -81,8 +94,8 @@ jobs:
     - name: Determine bump type
       id: bump_type
       if: >-
-        steps.get_version.outputs.version_type != 'none' &&
-        steps.get_version.outputs.build_needed == 'true'
+        steps.get_version.outputs.build_needed == 'true' &&
+        steps.get_version_outputs.no_bump_needed != 'true'
       run: |
 
         # Determine the level of change for semver bump.
@@ -126,64 +139,102 @@ jobs:
             [[ $i == 'docs' ]] && highest=0 && continue;
             [[ $i == 'ci' ]] && highest=0 && continue;
           done
-          echo "Highest value was $highest."
-          echo "version_type_value=$highest" >> "$GITHUB_OUTPUT";
-          version_type=none;
+          echo "Highest version value was $highest."
+          echo "new_version_int=$highest" >> "$GITHUB_OUTPUT";
+          new_version_string=none;
           case $highest in
             8)
-              version_type=major
+              new_version_string=major
               ;;
             7)
-              version_type=feature
+              new_version_string=feature
               ;;
             6)
-              version_type=bug
+              new_version_string=bug
               ;;
             5)
-              version_type=rc
+              new_version_string=rc
               ;;
             4)
-              version_type=pre
+              new_version_string=pre
               ;;
             3)
-              version_type=beta
+              new_version_string=beta
               ;;
             2)
-              version_type=alpha
+              new_version_string=alpha
               ;;
             1)
-              version_type=build
+              new_version_string=build
               ;;
             *)
-              version_type=none
+              new_version_string=none
               ;;
           esac
         fi
+        echo "Needed version bump is $new_version_string."
+
+        # Check if using build numbers. If not, then don't bump the version if only build would change.
         use_build_numbers=${{ inputs.use_build_numbers }}
-        if [[ ! $use_build_numbers ]] && [[ $version_type=build ]]; then
-          echo "version_type=none" >> "$GITHUB_OUTPUT";
+
+        if [[ ! $use_build_numbers ]] && [[ $new_version_string=build ]]; then
+          echo "new_version_string=none" >> "$GITHUB_OUTPUT";
         else
-          echo "version_type=$version_type" >> "$GITHUB_OUTPUT";
+          echo "new_version_string=$new_version_string" >> "$GITHUB_OUTPUT";
         fi
 
     - name: Update semantic version
       id: bump_version
       if: >-
-        steps.get_version.outputs.version_type != 'none' &&
+        steps.get_version_outputs.no_bump_needed != 'true' &&
+        steps.bump_type.outputs.new_version_string != 'none' &&
         steps.get_version.outputs.build_needed == 'true'
       uses: TLii/increment-semantic-version-with-build-numbers@1.0.0
       with:
         current-version: ${{ inputs.current_version }}
-        version-fragment: ${{ steps.bump_type.outputs.version_type }}
+        version-fragment: ${{ steps.bump_type.outputs.new_version_string }}
         include-build-number: ${{ inputs.use_build_numbers }}
 
     - name: Don't update semantic version
       id: return
       run: |
-        new_version=${{ steps.bump_version.outputs.next-version }}
+        # Check if bump was even needed.
+        bump_check=${{ steps.get_version.outputs.no_bump_needed }}
 
-        if [[ -n $new_version ]]; then
-          echo "next-version=$new_version" >> "$GITHUB_OUTPUT"
+        # If bump is not needed, return current version and no bump values.
+        if [[ $bump_check == true ]]; then
+          echo "new_version_string=none" >> "$GITHUB_OUTPUT";
+          echo "new_version=${{ inputs.current_version }}" >> "$GITHUB_OUTPUT";
+          echo "new_version_int=0" >> "$GITHUB_OUTPUT";
+
         else
-          echo "next-version=${{ inputs.current_version }}" >> "$GITHUB_OUTPUT"
+        # If bump was needed, return new version and bump values.
+
+          # Check if new version was set. Return current version if not.
+          new_version=${{ steps.bump_version.outputs.next-version }}
+          if [[ -n $new_version ]]; then
+            echo "next-version=$new_version" >> "$GITHUB_OUTPUT"
+          else
+            echo "next-version=${{ inputs.current_version }}" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Check if new version bump number was set. Return zero if not.
+          new_version_int=${{ steps.bump_type.outputs.new_version_int }}
+          if [[ -n $new_version_int ]]; then
+            echo "new_version_int=$new_version_int" >> "$GITHUB_OUTPUT"
+          else
+            echo "new_version_int=0" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Check if new version bump string was set. Return none if not.
+          new_version_string=${{ steps.bump_type.outputs.new_version_string }}
+          if [[ -n $new_version_string ]]; then
+            echo "new_version_string=$new_version_string" >> "$GITHUB_OUTPUT"
+          else
+            echo "new_version_string=none" >> "$GITHUB_OUTPUT"
+          fi
         fi
+
+        # In any case, return if build was needed."
+        build_needed=${{ steps.get_version.outputs.build_needed }}
+        echo "build_needed=$build_needed" >> "$GITHUB_OUTPUT"
