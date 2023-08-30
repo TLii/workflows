@@ -51,7 +51,7 @@ jobs:
       run: |
         last_head=${{ inputs.last_build_head }} # The commit id of the last build
 
-        if [[ $last_head == '0' || $last_head == '' || -n $last_head ]]; then
+        if [[ $last_head == '0' || $last_head == '' || -z $last_head ]]; then
           # If last build was not recorded, assume a rebuild with minimal versioning.
           echo "No recorded last build head, so just doing a rebuild without version bumps."
           echo "no_bump_needed=true" >> "$GITHUB_OUTPUT";
@@ -199,36 +199,38 @@ jobs:
         version-fragment: ${{ steps.bump_type.outputs.new_version_string }}
         include-build-number: ${{ inputs.use_build_numbers }}
 
-    - name: Don't update semantic version
+    - name: Wrap-up
       id: return
       run: |
-        # Check if bump was even needed.
+        # Check if bump was even needed. If check is true, no bump was needed.
         bump_check=${{ steps.get_version.outputs.no_bump_needed }}
 
-        # If bump is not needed, return current version and no bump values.
+        # If check returns true, return current version and zero for version increase bumps.
         if [[ $bump_check == 'true' ]]; then
           echo "new_version_string=none" >> "$GITHUB_OUTPUT";
           echo "new_version=${{ inputs.current_version }}" >> "$GITHUB_OUTPUT";
           echo "new_version_int=0" >> "$GITHUB_OUTPUT";
-
+          echo "It seems like no version bump was needed."
+        
         else
+        
         # If bump was needed, return new version and bump values.
 
           # Check if new version was set. Return current version if not.
           new_version=${{ steps.bump_version.outputs.next-version }}
           if [[ -n $new_version ]]; then
             echo "next-version=$new_version" >> "$GITHUB_OUTPUT"
-            echo "New version is $new_version."
+            echo "Version changed, new version is $new_version."
           else
             echo "next-version=${{ inputs.current_version }}" >> "$GITHUB_OUTPUT"
-            echo "Version didn't change, so next version is ${{ inputs.current_version }}."
+            echo "Version didn't change, version remains at ${{ inputs.current_version }}."
           fi
 
           # Check if new version bump number was set. Return zero if not.
           new_version_int=${{ steps.bump_type.outputs.new_version_int }}
           if [[ -n $new_version_int ]]; then
             echo "new_version_int=$new_version_int" >> "$GITHUB_OUTPUT"
-            echo "New version bump number is $new_version_int."
+            echo "Version changed, update integer is $new_version_int."
           else
             echo "new_version_int=0" >> "$GITHUB_OUTPUT"
             echo "Version didn't change, so update integer is 0."
@@ -238,14 +240,14 @@ jobs:
           new_version_string=${{ steps.bump_type.outputs.new_version_string }}
           if [[ -n $new_version_string ]]; then
             echo "new_version_string=$new_version_string" >> "$GITHUB_OUTPUT"
-            echo "New version bump string is $new_version_string."
+            echo "Version changed, update type: $new_version_string."
           else
             echo "new_version_string=none" >> "$GITHUB_OUTPUT"
             echo "Version didn't change, so update string is 'none'."
           fi
         fi
 
-        # In any case, return if build was needed."
+        # In any case, return whether a new build is needed.
         build_needed=${{ steps.get_version.outputs.build_needed }}
         echo "build_needed=$build_needed" >> "$GITHUB_OUTPUT"
         echo "Build needed is $build_needed."
